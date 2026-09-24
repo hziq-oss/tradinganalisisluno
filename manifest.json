@@ -1,0 +1,20 @@
+{
+  "name": "Pusat Analisis Trading Luno",
+  "short_name": "LunoAnalisis",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0052FF",
+  "icons": [
+    {
+      "src": "https://images.surferbook.com/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://images.surferbook.com/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
