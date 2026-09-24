@@ -1,1 +1,201 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pusat Analisis Trading Luno</title>
+    <!-- PWA Manifest & Theme -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0052FF">
+    <!-- Chart.js untuk Analisis Grafik -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #0052FF; --bg: #f8fafc; --card-bg: #ffffff; --text: #0f172a; --border: #e2e8f0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; }
+        header { text-align: center; margin-bottom: 25px; }
+        h1 { color: var(--primary); margin-bottom: 5px; font-size: 24px; }
+        p.subtitle { color: #64748b; font-size: 14px; margin-top: 0; }
+        
+        .panel { background: var(--card-bg); border: 1px solid var(--border); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; font-size: 13px; margin-bottom: 5px; color: #475569; }
+        input[type="text"], select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        
+        .btn { background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 15px; }
+        .btn:hover { background-color: #003db8; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid var(--border); }
+        .stat-card h3 { margin: 0; font-size: 12px; color: #64748b; text-transform: uppercase; }
+        .stat-card p { margin: 8px 0 0; font-size: 18px; font-weight: bold; color: var(--primary); }
+        
+        .chart-container { position: relative; height: 400px; width: 100%; }
+    </style>
+</head>
+<body>
 
+<div class="container">
+    <header>
+        <h1>Pusat Analisis Trading Luno</h1>
+        <p class="subtitle">Analisis Data Pukal & Live dari Google Sheet secara Automatik</p>
+    </header>
+
+    <div class="panel">
+        <div class="form-group">
+            <label for="sheetUrl">Pautan CSV Google Sheet (URL Export):</label>
+            <input type="text" id="sheetUrl" placeholder="Cth: https://docs.google.com/spreadsheets/d/.../export?format=csv">
+        </div>
+        
+        <div class="form-group">
+            <label for="coinSelect">Pilih Pasangan Koin (Tab Google Sheet):</label>
+            <select id="coinSelect" onchange="updateUrlForCoin()">
+                <option value="BTCMYR">BTC/MYR</option>
+                <option value="ETHMYR">ETH/MYR</option>
+                <option value="ADAMYR">ADA/MYR</option>
+                <option value="XRPMYR">XRP/MYR</option>
+                <option value="SOLMYR">SOL/MYR</option>
+                <option value="AVAXMYR">AVAX/MYR</option>
+                <option value="DOTMYR">DOT/MYR</option>
+                <option value="LTCMYR">LTC/MYR</option>
+                <option value="BCHMYR">BCH/MYR</option>
+                <option value="POLMYR">POL/MYR</option>
+                <option value="UNIMYR">UNISWAP (UNI/MYR)</option>
+            </select>
+        </div>
+        <button class="btn" onclick="loadData()">Muat & Analisis Data</button>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Harga Terkini (Close)</h3>
+            <p id="currPrice">-</p>
+        </div>
+        <div class="stat-card">
+            <h3>Tertinggi (High)</h3>
+            <p id="highPrice">-</p>
+        </div>
+        <div class="stat-card">
+            <h3>Terendah (Low)</h3>
+            <p id="lowPrice">-</p>
+        </div>
+        <div class="stat-card">
+            <h3>Jumlah Volum</h3>
+            <p id="volSum">-</p>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="chart-container">
+            <canvas id="tradingChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    let myChart = null;
+
+    // Daftar Service Worker untuk fungsi PWA (Install as App)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker Berjaya Didaftar', reg))
+                .catch(err => console.log('Ralat Service Worker', err));
+        });
+    }
+
+    function updateUrlForCoin() {
+        // Fungsi bantu jika pengguna mahu ubah parameter gid tab mengikut koin
+        // Anda juga boleh masukkan URL penuh manual berserta gid tab masing-masing
+    }
+
+    async function loadData() {
+        const url = document.getElementById('sheetUrl').value.trim();
+        if (!url) {
+            alert('Sila masukkan pautan CSV Google Sheet terlebih dahulu.');
+            return;
+        }
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Gagal mengakses fail Google Sheet. Pastikan akses dikongsi "Anyone with the link can view".');
+            
+            const csvText = await response.text();
+            processCSV(csvText);
+        } catch (error) {
+            alert('Ralat: ' + error.message);
+            console.error(error);
+        }
+    }
+
+    function processCSV(csv) {
+        const lines = csv.split('\n');
+        let timestamps = [];
+        let prices = [];
+        let highs = [];
+        let lows = [];
+        let volumes = [];
+
+        // Mula membaca dari baris ke-2 (mengabaikan Header)
+        for (let i = 1; i < lines.length; i++) {
+            let line = lines[i].trim();
+            if (!line) continue;
+            let cols = line.split(',');
+            if (cols.length >= 5) {
+                timestamps.push(cols[0].trim());
+                prices.push(parseFloat(cols[1]));
+                volumes.push(parseFloat(cols[2]));
+                highs.push(parseFloat(cols[3]));
+                lows.push(parseFloat(cols[4]));
+            }
+        }
+
+        if (prices.length === 0) {
+            alert('Tiada data sah ditemui di dalam fail/tab ini.');
+            return;
+        }
+
+        // Paparkan statistik ringkas
+        const latestPrice = prices[prices.length - 1];
+        const maxHigh = Math.max(...highs);
+        const minLow = Math.min(...lows);
+        const totalVol = volumes.reduce((a, b) => a + b, 0).toFixed(2);
+
+        document.getElementById('currPrice').innerText = 'RM ' + latestPrice.toFixed(4);
+        document.getElementById('highPrice').innerText = 'RM ' + maxHigh.toFixed(4);
+        document.getElementById('lowPrice').innerText = 'RM ' + minLow.toFixed(4);
+        document.getElementById('volSum').innerText = totalVol;
+
+        // Lukis Graf Chart.js
+        const ctx = document.getElementById('tradingChart').getContext('2d');
+        if (myChart) myChart.destroy();
+
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timestamps,
+                datasets: [{
+                    label: 'Harga Penutupan (Price MYR)',
+                    data: prices,
+                    borderColor: '#0052FF',
+                    backgroundColor: 'rgba(0, 82, 255, 0.08)',
+                    borderWidth: 2,
+                    pointRadius: 1,
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { grid: { color: '#f1f5f9' } }
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
